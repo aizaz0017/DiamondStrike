@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -56,8 +57,8 @@ public class ReelController : MonoBehaviour
             yield return null;
         }
 
-        finalSymbolIndex = Random.Range(0, symbolSprites.Length);
-        UpdateFinalSymbols(finalSymbolIndex);
+        //finalSymbolIndex = Random.Range(0, symbolSprites.Length);
+        //UpdateFinalSymbols(finalSymbolIndex);
 
         yield return SnapToFinalPosition();
     }
@@ -97,8 +98,13 @@ public class ReelController : MonoBehaviour
         return isSpinning;
     }
 
-    public Sprite GetMiddleSymbol()
+    public Sprite[] GetAllSymbols()
     {
-        return reelImages[1].sprite;
+        List<Sprite> currentSymbols = new List<Sprite>();
+        for(int i=0; i<reelImages.Length; i++)
+        {
+            currentSymbols.Add(reelImages[i].sprite);
+        }
+        return currentSymbols.ToArray();
     }
 }

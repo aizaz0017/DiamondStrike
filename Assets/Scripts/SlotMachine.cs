@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using TMPro;
 using UnityEngine;
@@ -6,9 +7,10 @@ using UnityEngine.UI;
 
 public class SlotMachineManager : MonoBehaviour
 {
-    public ReelController reel1, reel2, reel3;
+    public List<ReelController> reels;
     public WinAnimation winAnimation;
     public UiHandler uiHandler;
+    public WinningLogic winningLogic;
 
     public TMP_Text balanceDisplay, resultDisplay, betAmountDisplay;
     public Button spinButton;
@@ -62,7 +64,6 @@ public class SlotMachineManager : MonoBehaviour
     {
         spinButton.interactable = false;
 
-        ReelController[] reels = { reel1, reel2, reel3 };
         foreach (var reel in reels) reel.StartSpin();
 
         resultDisplay.text = "Spinning...";
@@ -71,7 +72,7 @@ public class SlotMachineManager : MonoBehaviour
         yield return new WaitUntil(() => reels.All(r => !r.IsSpinning()));
 
         yield return new WaitForSeconds(0.5f);
-
+        spinButton.interactable = true;
         CheckWin();
     }
 
@@ -86,72 +87,96 @@ public class SlotMachineManager : MonoBehaviour
     private void CheckWin()
     {
         // Retrieve symbols and sprites
-        Sprite[] symbols = { reel1.GetMiddleSymbol(), reel2.GetMiddleSymbol(), reel3.GetMiddleSymbol() };
-        string[] symbolNames = { symbols[0].name, symbols[1].name, symbols[2].name };
+        Sprite[] symbols = new Sprite[reels.Count * 3]; // 5 reels x 3 symbols
+
+        // Extract symbols in horizontal order.
+        for (int row = 0; row < 3; row++) // Top, Middle, Bottom rows
+        {
+            for (int reelIndex = 0; reelIndex < reels.Count; reelIndex++)
+            {
+                symbols[row * reels.Count + reelIndex] = reels[reelIndex].GetAllSymbols()[row];
+            }
+        }
+
+        // Extract symbol names.
+        string[] symbolNames = new string[symbols.Length];
+        for (int i = 0; i < symbols.Length; i++)
+        {
+            symbolNames[i] = symbols[i].name;
+        }
+
+        //int winnings = 0;
+        //int scatterCount = 0;
+        //string winReason = "";
 
         int winnings = 0;
-        int scatterCount = 0;
         string winReason = "";
+        int scatterCount = 0;
+        int scatterPayout = 10; // Example scatter win multiplier
+        int wildMultiplier = 2; // Wild symbol payout boost
 
         bool[] isWild = { symbolNames[0].Contains("Wild"), symbolNames[1].Contains("Wild"), symbolNames[2].Contains("Wild") };
         bool[] isScatter = { symbolNames[0].Contains("Scatter"), symbolNames[1].Contains("Scatter"), symbolNames[2].Contains("Scatter") };
 
-        // Count scatter symbols
-        for (int i = 0; i < isScatter.Length; i++)
-        {
-            if (isScatter[i]) scatterCount++;
-        }
+        (int winningPayline, string winningSymbol, int matchCount) winResult = winningLogic.CheckForWins(symbols, symbolNames);
+       int scatterWinsCount =  winningLogic.CheckForScatterWins(symbolNames);
+        winnings = 3 * winResult.matchCount;
+        //// Count scatter symbols
+        //for (int i = 0; i < isScatter.Length; i++)
+        //{
+        //    if (isScatter[i]) scatterCount++;
+        //}
 
-        // Scatter Wins
-        if (scatterCount == 2)
-        {
-            winnings += betAmount * 2;
-            winReason = "Dual scatter!";
-        }
-        else if (scatterCount == 3)
-        {
-            winnings += betAmount * 5;
-            winReason = "Triple scatter! Free spin !";
-            StartCoroutine(FreeSpin());
-        }
+        //// Scatter Wins
+        //if (scatterCount == 2)
+        //{
+        //    winnings += betAmount * 2;
+        //    winReason = "Dual scatter!";
+        //}
+        //else if (scatterCount == 3)
+        //{
+        //    winnings += betAmount * 5;
+        //    winReason = "Triple scatter! Free spin !";
+        //    StartCoroutine(FreeSpin());
+        //}
 
-        // Regular Line Wins
-        if (symbolNames[0] == symbolNames[1] && symbolNames[1] == symbolNames[2])
-        {
-            winnings += betAmount * 5;
-            winReason = $"Three matching : {symbolNames[0]}";
-        }
-        else if (isWild[0] && symbolNames[1] == symbolNames[2] ||
-                 isWild[1] && symbolNames[0] == symbolNames[2] ||
-                 isWild[2] && symbolNames[0] == symbolNames[1])
-        {
-            winnings += betAmount * 5;
-            winReason = $"Wild + two matching!";
-        }
-        // Partial Wins
-        else if (symbolNames[0] == symbolNames[1] || symbolNames[1] == symbolNames[2])
-        {
-            winnings += betAmount * 2;
-            winReason = $"Partial win with {symbolNames[1]}!";
-        }
-        // Double Wild Bonus
-        else if ((isWild[0] && isWild[1]) || (isWild[1] && isWild[2]))
-        {
-            winnings += betAmount * 3;
-            winReason = "Double wild boost!";
-        }
+        //// Regular Line Wins
+        //if (symbolNames[0] == symbolNames[1] && symbolNames[1] == symbolNames[2])
+        //{
+        //    winnings += betAmount * 5;
+        //    winReason = $"Three matching : {symbolNames[0]}";
+        //}
+        //else if (isWild[0] && symbolNames[1] == symbolNames[2] ||
+        //         isWild[1] && symbolNames[0] == symbolNames[2] ||
+        //         isWild[2] && symbolNames[0] == symbolNames[1])
+        //{
+        //    winnings += betAmount * 5;
+        //    winReason = $"Wild + two matching!";
+        //}
+        //// Partial Wins
+        //else if (symbolNames[0] == symbolNames[1] || symbolNames[1] == symbolNames[2])
+        //{
+        //    winnings += betAmount * 2;
+        //    winReason = $"Partial win with {symbolNames[1]}!";
+        //}
+        //// Double Wild Bonus
+        //else if ((isWild[0] && isWild[1]) || (isWild[1] && isWild[2]))
+        //{
+        //    winnings += betAmount * 3;
+        //    winReason = "Double wild boost!";
+        //}
 
-        // Handle winnings
-        if (winnings > 0)
-        {
-            GameEvents.PlayerWins(symbols[0], symbols[1], symbols[2]);
-            Delay(3.5f, nameof(EnableSpinButton));
-        }
-        else
-        {
-            spinButton.interactable = true;
-        }
-
+        //// Handle winnings
+        //if (winnings > 0)
+        //{
+        //    GameEvents.PlayerWins(symbols[0], symbols[1], symbols[2]);
+        //    Delay(3.5f, nameof(EnableSpinButton));
+        //}
+        //else
+        //{
+        //    spinButton.interactable = true;
+        //}
+        
         balance += winnings;
         UpdateBalance();
         resultDisplay.text = winnings > 0 ? $"You won: ${winnings}! {winReason}" : "Try again!";
